@@ -1,0 +1,189 @@
+
+#include <GLFW/glfw3.h>
+#include <GL/gl.h>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+float cameraYAngle = 0.0f;  // زاوية الدوران حول المحور Y
+float cameraXAngle = 0.0f;  // زاوية الدوران حول المحور X
+double lastX, lastY;        // مواقع الماوس السابقة
+bool firstMouse = true;     // علم لتحديد أول حركة للماوس
+
+void setPerspective(float fov, float aspectRatio, float near, float far) {
+    float f = 1.0f / tan(fov / 2.0f);
+    float nf = 1.0f / (near - far);
+    float projectionMatrix[16] = {
+        f / aspectRatio, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (near + far) * nf, -1,
+        0, 0, (2 * near * far) * nf, 0
+    };
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glMultMatrixf(projectionMatrix);
+}
+
+void drawCube(float x, float y, float z, float width, float height, float depth, float r, float g, float b) {
+    glBegin(GL_QUADS);
+
+    // الخصائص الكاملة للمواد
+    GLfloat mat_diffuse[] = { r, g, b, 1.0f }; // اللون
+    GLfloat mat_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f }; // اللون المضيء
+    GLfloat mat_shininess[] = { 50.0f }; // اللمعان
+
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+
+    // الواجهة الأمامية
+    glVertex3f(x - width / 2, y - height / 2, z + depth / 2);
+    glVertex3f(x + width / 2, y - height / 2, z + depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z + depth / 2);
+    glVertex3f(x - width / 2, y + height / 2, z + depth / 2);
+
+    // الواجهة الخلفية
+    glVertex3f(x - width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z - depth / 2);
+    glVertex3f(x - width / 2, y + height / 2, z - depth / 2);
+
+    // الجانبين
+    glVertex3f(x - width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x - width / 2, y - height / 2, z + depth / 2);
+    glVertex3f(x - width / 2, y + height / 2, z + depth / 2);
+    glVertex3f(x - width / 2, y + height / 2, z - depth / 2);
+
+    glVertex3f(x + width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y - height / 2, z + depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z + depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z - depth / 2);
+
+    // السقف
+    glVertex3f(x - width / 2, y + height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y + height / 2, z + depth / 2);
+    glVertex3f(x - width / 2, y + height / 2, z + depth / 2);
+
+    // القاعدة
+    glVertex3f(x - width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y - height / 2, z - depth / 2);
+    glVertex3f(x + width / 2, y - height / 2, z + depth / 2);
+    glVertex3f(x - width / 2, y - height / 2, z + depth / 2);
+
+    glEnd();
+}
+
+void drawChair() {
+    float seatWidth = 1.2f;
+    float seatDepth = 1.1f;
+    float seatHeight = 0.1f;
+    float backHeight = 1.6f; // زيادة ارتفاع الظهر
+    float redColor[] = { 1.0f, 0.0f, 0.0f }; // اللون الأحمر للمقعد
+    float blueColor[] = { 0.0f, 0.0f, 1.0f }; // اللون الأزرق
+    float greenColor[] = { 0.0f, 1.0f, 0.0f }; // اللون الأخضر
+
+    // رسم المقعد بلون أحمر
+    drawCube(0.0f, 0.5f, 0.0f, seatWidth, seatHeight, seatDepth, redColor[0], redColor[1], redColor[2]); // المقعد
+    // رسم ظهر الكرسي بلون أزرق
+    drawCube(0.0f, 0.5f + backHeight / 2, -0.5f, seatWidth, backHeight, 0.1f, blueColor[0], blueColor[1], blueColor[2]); // ظهر الكرسي
+
+    // رسم الساقين بلون أخضر
+    float legHeight = 1.1f;
+    float legWidth = 0.09f;
+    // الأرجل الأمامية
+    drawCube(-0.6f, 0.0f, 0.4f, legWidth, legHeight, legWidth, greenColor[0], greenColor[1], greenColor[2]); // الساق اليسرى
+    drawCube(0.6f, 0.0f, 0.4f, legWidth, legHeight, legWidth, greenColor[0], greenColor[1], greenColor[2]); // الساق اليمنى
+    // الأرجل الخلفية
+    drawCube(-0.6f, 0.0f, -0.4f, legWidth, legHeight, legWidth, greenColor[0], greenColor[1], greenColor[2]); // الساق اليسرى
+    drawCube(0.6f, 0.0f, -0.4f, legWidth, legHeight, legWidth, greenColor[0], greenColor[1], greenColor[2]); // الساق اليمنى
+
+    // إضافة عوارض بين الأرجل في الأسفل بلون أحمر
+    float crossbarHeight = -0.1f;  // ارتفاع العوارض تحت المقعد
+    drawCube(0.0f, crossbarHeight, 0.4f, 1.3f, 0.1f, 0.1f, redColor[0], redColor[1], redColor[2]); // العارضة الأمامية
+    drawCube(0.0f, crossbarHeight, -0.4f, 1.3f, 0.1f, 0.1f, redColor[0], redColor[1], redColor[2]); // العارضة الخلفية
+    drawCube(-0.6f, crossbarHeight, 0.0f, 0.1f, 0.1f, 0.8f, redColor[0], redColor[1], redColor[2]); // العارضة اليسرى
+    drawCube(0.6f, crossbarHeight, 0.0f, 0.1f, 0.1f, 0.8f, redColor[0], redColor[1], redColor[2]); // العارضة اليمنى
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    double xoffset = xpos - lastX;
+    double yoffset = lastY - ypos;
+    lastX = xpos;
+    lastY = ypos;
+
+    const float sensitivity = 0.7f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    cameraYAngle += xoffset;
+    cameraXAngle += yoffset;
+
+    if (cameraXAngle > 89.0f) cameraXAngle = 89.0f;
+    if (cameraXAngle < -89.0f) cameraXAngle = -89.0f;
+}
+
+void render() {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glLoadIdentity();
+
+    glTranslatef(0.0f, 0.0f, -6.0f);
+    glRotatef(cameraXAngle, 1.0f, 0.0f, 0.0f);
+    glRotatef(cameraYAngle, 0.0f, 1.0f, 0.0f);
+
+    drawChair(); // رسم الكرسي
+}
+
+int main() {
+    if (!glfwInit()) {
+        return -1;
+    }
+
+    GLFWwindow* window = glfwCreateWindow(1200, 1000, "3D Colored Chair with Lighting", NULL, NULL);
+    if (!window) {
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwMakeContextCurrent(window);
+    glEnable(GL_DEPTH_TEST);
+
+    glClearColor(0.5f, 0.5f, 0.5f, 1.0f); // لون الخلفية الرمادي
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+
+    // إعدادات مصدر الضوء
+    GLfloat light_position[] = { 0.0f, 2.0f, 2.0f, 1.0f }; // موضع الضوء
+    GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f }; // اللون المضيء
+    GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f }; // اللون اللامع
+    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    setPerspective(45.0f * (M_PI / 180.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+    glMatrixMode(GL_MODELVIEW);
+
+    glfwSetCursorPosCallback(window, mouse_callback);
+
+    while (!glfwWindowShouldClose(window)) {
+        render();
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    return 0;
+}
